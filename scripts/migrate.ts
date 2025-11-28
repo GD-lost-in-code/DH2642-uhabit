@@ -57,11 +57,7 @@ async function getAppliedMigrations(isLocal: boolean, env?: string): Promise<Set
 	return new Set(migrations.map((m: { name: string }) => m.name));
 }
 
-async function applyMigration(
-	migration: Migration,
-	isLocal: boolean,
-	env?: string
-): Promise<void> {
+async function applyMigration(migration: Migration, isLocal: boolean, env?: string): Promise<void> {
 	const remoteFlag = isLocal ? '--local' : '--remote';
 	const envFlag = env ? `--env=${env}` : '';
 	const migrationPath = join(MIGRATIONS_DIR, migration.filename);
@@ -117,5 +113,20 @@ async function main() {
 
 main().catch((error) => {
 	console.error('[ERROR] Migration failed:', error.message);
+
+	// Check if it's a "table already exists" error
+	if (error.message.includes('already exists')) {
+		console.error('\n' + '='.repeat(70));
+		console.error('It looks like migrations were previously applied to this database');
+		console.error('but are not tracked in the new migration system.');
+		console.error('\nTo fix this ONE-TIME issue, run the bootstrap script:');
+		console.error('\n  For staging:');
+		console.error('    bun run db:bootstrap:staging');
+		console.error('\n  For production:');
+		console.error('    bun run db:bootstrap:production');
+		console.error('\nThis will mark existing migrations as applied without re-running them.');
+		console.error('='.repeat(70) + '\n');
+	}
+
 	process.exit(1);
 });
