@@ -1,18 +1,22 @@
 <script lang="ts">
 	import { SquarePen } from 'lucide-svelte';
 	import { SquareCheckBig } from 'lucide-svelte';
+	import { tick } from 'svelte';
 
 	let isEditing = false;
 	let customUnit: string | null = '';
 	let isIndicatorVisible = true;
 	export let unit: string | null = 'ml';
+	let inputEl: HTMLInputElement | null = null;
 
 	$: if (!isEditing) {
 		customUnit = unit;
 	}
-	function enableEdit() {
+	async function enableEdit() {
 		customUnit = unit;
 		isEditing = true;
+		await tick();
+		inputEl?.focus();
 	}
 
 	function save() {
@@ -50,10 +54,10 @@
 			class="border border-gray-300 w-18 h-9 rounded-md text-sm pl-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
 			name="unit"
 			bind:value={customUnit}
+			bind:this={inputEl}
 			on:blur={save}
 			on:focus={hideUnitIndicator}
 			on:keydown={(e) => e.key === 'Enter' && save()}
-			autofocus
 		/>
 
 		<button class="text-xs w-10 h-9 rounded hover:bg-gray-100 flex justify-center items-center">

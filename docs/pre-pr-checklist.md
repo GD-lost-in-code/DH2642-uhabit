@@ -61,10 +61,10 @@ This runs SvelteKit sync and svelte-check to verify:
 #### Unit Tests
 
 ```bash
-bun test
+bun run test
 ```
 
-This runs all unit tests once. All relevant tests must pass.
+Runs all tests once (CI mode). All relevant tests must pass.
 
 #### Watch Mode (Development)
 
@@ -286,11 +286,6 @@ If you added large files:
 #### Full Clean Build
 
 ```bash
-# Remove build artifacts
-rm -rf .svelte-kit dist
-
-# Fresh install (if dependencies changed)
-rm -rf node_modules bun.lock
 bun install
 
 # Build from scratch
