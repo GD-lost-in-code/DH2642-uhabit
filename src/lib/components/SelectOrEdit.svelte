@@ -1,70 +1,59 @@
 <script lang="ts">
-	import { SquarePen } from 'lucide-svelte';
-	import { SquareCheckBig } from 'lucide-svelte';
-	import { tick } from 'svelte';
+	export let unit: string | null = '';
+	export let required: boolean = false;
 
-	let isEditing = false;
-	let customUnit: string | null = '';
-	let isIndicatorVisible = true;
-	export let unit: string | null = 'ml';
-	let inputEl: HTMLInputElement | null = null;
+	const suggestions = ['times', 'min', 'ml', 'hours', 'km', 'steps', 'pages', 'glasses'];
 
-	$: if (!isEditing) {
-		customUnit = unit;
-	}
-	async function enableEdit() {
-		customUnit = unit;
-		isEditing = true;
-		await tick();
-		inputEl?.focus();
+	let inputEl: HTMLInputElement;
+	let showOptions = false;
+
+	function handleFocus() {
+		showOptions = true;
 	}
 
-	function save() {
-		if (customUnit?.trim()) {
-			unit = customUnit?.trim();
-		}
-		isEditing = false;
-		isIndicatorVisible = true;
+	function handleBlur() {
+		// Delay to allow click on option
+		setTimeout(() => {
+			showOptions = false;
+		}, 150);
 	}
-	function hideUnitIndicator() {
-		isIndicatorVisible = false;
+
+	function selectOption(option: string) {
+		unit = option;
+		showOptions = false;
+		inputEl?.blur();
 	}
 </script>
 
-<div class="flex items-center gap-1 relative">
-	{#if !isEditing}
-		<select
-			class="border border-gray-300 w-18 h-9 rounded-md text-sm text-transparent focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"
-			name="unit"
-			bind:value={unit}
-		>
-			<option value="times">times</option>
-			<option value="min">min</option>
-			<option value="ml">ml</option>
-		</select>
+<div class="relative">
+	<input
+		class="border border-surface-300-600 w-28 h-11 rounded-md text-base px-3 pr-8 bg-surface-50-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+		name="unit"
+		bind:value={unit}
+		bind:this={inputEl}
+		placeholder="Unit"
+		autocomplete="off"
+		{required}
+		on:focus={handleFocus}
+		on:blur={handleBlur}
+	/>
+	<span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">▾</span>
 
-		<button
-			class="text-xs w-10 h-9 rounded hover:bg-gray-100 flex justify-center items-center"
-			on:click={enableEdit}
+	{#if showOptions}
+		<ul
+			class="absolute z-10 top-full left-0 mt-1 w-full bg-surface-50-800 border border-surface-300-600 rounded-md shadow-lg max-h-48 overflow-y-auto"
 		>
-			<SquarePen strokeWidth={1.4} />
-		</button>
-	{:else}
-		<input
-			class="border border-gray-300 w-18 h-9 rounded-md text-sm pl-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-			name="unit"
-			bind:value={customUnit}
-			bind:this={inputEl}
-			on:blur={save}
-			on:focus={hideUnitIndicator}
-			on:keydown={(e) => e.key === 'Enter' && save()}
-		/>
-
-		<button class="text-xs w-10 h-9 rounded hover:bg-gray-100 flex justify-center items-center">
-			<SquareCheckBig strokeWidth={1.4} /></button
-		>
+			{#each suggestions as suggestion}
+				<li>
+					<button
+						type="button"
+						class="w-full text-left px-3 py-2.5 text-base hover:bg-surface-200-700 active:bg-surface-300-600"
+						on:mousedown|preventDefault={() => selectOption(suggestion)}
+					>
+						{suggestion}
+					</button>
+				</li>
+			{/each}
+		</ul>
 	{/if}
-	<p class="unit-indicator text-sm absolute pl-2" class:text-transparent={!isIndicatorVisible}>
-		{unit}
-	</p>
 </div>
