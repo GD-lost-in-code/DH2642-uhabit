@@ -48,8 +48,8 @@
 		} catch (err) {
 			if (err instanceof Error) {
 				const msg = err.message.toLowerCase();
-				// If it's a password validation error, show it
-				if (msg.includes('password') && (msg.includes('must') || msg.includes('character'))) {
+				// If it's a password validation error (including HIBP breach message), show it
+				if (msg.includes('password')) {
 					errorMessage = err.message;
 				} else if (msg.includes('email') && msg.includes('already')) {
 					// Generic message - don't confirm email exists
