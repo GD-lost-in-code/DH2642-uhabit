@@ -84,7 +84,9 @@ export const POST: RequestHandler = async (event) => {
 		const kv = event.platform?.env?.RATE_LIMIT;
 		const successLimit = rateLimits.REGISTER_SUCCESS;
 		const successIdentifier = `register:success:${identifier}`;
-		const successCheck = await checkRateLimit(successIdentifier, successLimit, kv, { consume: false });
+		const successCheck = await checkRateLimit(successIdentifier, successLimit, kv, {
+			consume: false
+		});
 
 		if (!successCheck.allowed) {
 			return json(
