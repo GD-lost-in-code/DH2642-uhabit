@@ -40,10 +40,12 @@ export const POST: RequestHandler = async (event) => {
 	let rateLimitConfig = null;
 	let identifier = clientIP;
 
+	const isRegistrationPath = path.includes('/sign-up/email');
+
 	if (path.includes('/sign-in/email')) {
 		rateLimitConfig = rateLimits.LOGIN;
-	} else if (path.includes('/sign-up/email')) {
-		rateLimitConfig = rateLimits.REGISTER;
+	} else if (isRegistrationPath) {
+		rateLimitConfig = rateLimits.REGISTER_ATTEMPT;
 	} else if (path.includes('/forget-password') || path.includes('/reset-password')) {
 		rateLimitConfig = rateLimits.PASSWORD_RESET;
 	}
@@ -52,7 +54,11 @@ export const POST: RequestHandler = async (event) => {
 	if (rateLimitConfig) {
 		// Use KV namespace if available, fallback to in-memory for local dev
 		const kv = event.platform?.env?.RATE_LIMIT;
-		const result = await checkRateLimit(identifier, rateLimitConfig, kv);
+		const result = await checkRateLimit(
+			isRegistrationPath ? `register:attempt:${identifier}` : identifier,
+			rateLimitConfig,
+			kv
+		);
 
 		if (!result.allowed) {
 			return json(
@@ -73,8 +79,34 @@ export const POST: RequestHandler = async (event) => {
 		}
 	}
 
+	// Pre-check successful registration limit before processing
+	if (isRegistrationPath) {
+		const kv = event.platform?.env?.RATE_LIMIT;
+		const successLimit = rateLimits.REGISTER_SUCCESS;
+		const successIdentifier = `register:success:${identifier}`;
+		const successCheck = await checkRateLimit(successIdentifier, successLimit, kv, { consume: false });
+
+		if (!successCheck.allowed) {
+			return json(
+				{
+					error: 'Too many successful registrations from this IP. Please try again later.',
+					retryAfter: successCheck.resetAt
+				},
+				{
+					status: 429,
+					headers: {
+						'Retry-After': successCheck.resetAt.toString(),
+						'X-RateLimit-Limit': successCheck.limit.toString(),
+						'X-RateLimit-Remaining': successCheck.remaining.toString(),
+						'X-RateLimit-Reset': successCheck.resetAt.toString()
+					}
+				}
+			);
+		}
+	}
+
 	// Server-side password validation for registration
-	if (path.includes('/sign-up/email')) {
+	if (isRegistrationPath) {
 		try {
 			const clonedRequest = event.request.clone();
 			const body = (await clonedRequest.json()) as { password?: string };
@@ -96,5 +128,15 @@ export const POST: RequestHandler = async (event) => {
 		}
 	}
 
-	return toSvelteKitHandler(auth)(event);
+	const response = await toSvelteKitHandler(auth)(event);
+
+	// Only count successful registration responses toward the success limit
+	if (isRegistrationPath && response.ok) {
+		const kv = event.platform?.env?.RATE_LIMIT;
+		const successLimit = rateLimits.REGISTER_SUCCESS;
+		const successIdentifier = `register:success:${identifier}`;
+		await checkRateLimit(successIdentifier, successLimit, kv);
+	}
+
+	return response;
 };

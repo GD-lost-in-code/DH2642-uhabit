@@ -15,6 +15,14 @@ interface RateLimitStore {
 	resetAt: number;
 }
 
+type RateLimitOptions = {
+	/**
+	 * Whether to consume a token from the limit (increment the count).
+	 * Set to false when you only want to read the current state.
+	 */
+	consume?: boolean;
+};
+
 // In-memory fallback store for local development
 const memoryStore = new Map<string, RateLimitStore>();
 
@@ -24,11 +32,13 @@ const memoryStore = new Map<string, RateLimitStore>();
  * @param identifier - Unique identifier (IP, email, etc.)
  * @param config - Rate limit configuration
  * @param kv - Optional KV namespace for persistent storage
+ * @param options - Optional options for the rate limit check
  */
 export async function checkRateLimit(
 	identifier: string,
 	config: RateLimitConfig,
-	kv?: KVNamespace
+	kv?: KVNamespace,
+	options?: RateLimitOptions
 ): Promise<{
 	allowed: boolean;
 	limit: number;
@@ -38,6 +48,7 @@ export async function checkRateLimit(
 	const now = Date.now();
 	const windowMs = config.windowSeconds * 1000;
 	const key = `rl:${identifier}`;
+	const consume = options?.consume !== false;
 
 	let record: RateLimitStore | null = null;
 
@@ -65,26 +76,28 @@ export async function checkRateLimit(
 		};
 	}
 
-	// Increment count
-	record.count++;
+	const nextCount = consume ? record.count + 1 : record.count;
+	const allowed = nextCount <= config.maxRequests;
+	const remaining = Math.max(0, config.maxRequests - nextCount);
 
-	// Save back to storage
-	if (kv) {
-		try {
-			// Set with TTL to auto-expire
-			await kv.put(key, JSON.stringify(record), {
-				expirationTtl: config.windowSeconds + 60 // Extra 60s buffer
-			});
-		} catch (error) {
-			console.error('[RATE_LIMIT] KV write error:', error);
-			// Continue anyway - single request won't be perfectly tracked but won't crash
+	if (consume) {
+		record.count = nextCount;
+
+		// Save back to storage
+		if (kv) {
+			try {
+				// Set with TTL to auto-expire
+				await kv.put(key, JSON.stringify(record), {
+					expirationTtl: config.windowSeconds + 60 // Extra 60s buffer
+				});
+			} catch (error) {
+				console.error('[RATE_LIMIT] KV write error:', error);
+				// Continue anyway - single request won't be perfectly tracked but won't crash
+			}
+		} else {
+			memoryStore.set(key, record);
 		}
-	} else {
-		memoryStore.set(key, record);
 	}
-
-	const allowed = record.count <= config.maxRequests;
-	const remaining = Math.max(0, config.maxRequests - record.count);
 
 	return {
 		allowed,
@@ -125,8 +138,11 @@ export const RATE_LIMITS = {
 	/** 5 login attempts per 15 minutes per IP */
 	LOGIN: { maxRequests: 5, windowSeconds: 15 * 60 },
 
-	/** 3 registrations per hour per IP */
-	REGISTER: { maxRequests: 3, windowSeconds: 60 * 60 },
+	/** 10 registration attempts per hour per IP */
+	REGISTER_ATTEMPT: { maxRequests: 10, windowSeconds: 60 * 60 },
+
+	/** 3 successful registrations per hour per IP */
+	REGISTER_SUCCESS: { maxRequests: 3, windowSeconds: 60 * 60 },
 
 	/** 3 password resets per hour per IP */
 	PASSWORD_RESET: { maxRequests: 3, windowSeconds: 60 * 60 },
@@ -140,8 +156,11 @@ export const RATE_LIMITS_DEV = {
 	/** 20 login attempts per 15 minutes per IP */
 	LOGIN: { maxRequests: 20, windowSeconds: 15 * 60 },
 
-	/** 20 registrations per hour per IP */
-	REGISTER: { maxRequests: 20, windowSeconds: 60 * 60 },
+	/** 20 registration attempts per hour per IP */
+	REGISTER_ATTEMPT: { maxRequests: 20, windowSeconds: 60 * 60 },
+
+	/** 10 successful registrations per hour per IP */
+	REGISTER_SUCCESS: { maxRequests: 10, windowSeconds: 60 * 60 },
 
 	/** 10 password resets per hour per IP */
 	PASSWORD_RESET: { maxRequests: 10, windowSeconds: 60 * 60 },
