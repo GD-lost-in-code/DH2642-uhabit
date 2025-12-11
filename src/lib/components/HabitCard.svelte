@@ -32,15 +32,20 @@
 <div
 	class="w-full min-h-[68px] rounded-lg border-[1.5px] border-surface-200 dark:border-surface-700 bg-surface-100 dark:bg-surface-800 flex justify-between items-center px-5 py-2 hover:bg-surface-200 dark:hover:bg-surface-700 transition-all duration-200"
 >
-	<div class="flex items-center gap-3">
+	<div class="flex items-center gap-3 min-w-0">
 		{#if habit.color}
 			<div class="w-3 h-8 rounded-full" style="background-color: {habit.color}"></div>
 		{/if}
-		<div class="flex flex-col gap-1">
-			<div class="flex items-center gap-2">
-				<span class="text-surface-900 dark:text-surface-50 font-medium">{habit.title}</span>
+		<div class="flex flex-col gap-1 min-w-0">
+			<div class="flex items-center gap-2 min-w-0">
 				<span
-					class="text-[11px] px-2 py-0.5 rounded bg-surface-100-800 text-surface-700 dark:text-surface-200 w-fit"
+					class="text-surface-900 dark:text-surface-50 font-medium truncate"
+					title={habit.title}
+				>
+					{habit.title}
+				</span>
+				<span
+					class="text-[11px] px-2 py-0.5 rounded bg-surface-100-800 text-surface-700 dark:text-surface-200 w-fit whitespace-nowrap shrink-0"
 				>
 					{habit.measurement === 'numeric' ? 'Progress' : 'Single step'}
 				</span>
