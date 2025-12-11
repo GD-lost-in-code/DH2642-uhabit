@@ -73,7 +73,7 @@ export function createHabitsPresenter({ initial, fetcher, browser, storage }: Ha
 	const restoredHabitModal = habitModal.restore(initial.habits);
 	const restoredGoalModal = goalModal.restore(initial.goals);
 
-	const { subscribe, update } = writable<HabitsState>({
+	const state = writable<HabitsState>({
 		habits: initial.habits,
 		goals: initial.goals,
 		activeTab: initial.initialTab,
@@ -87,6 +87,7 @@ export function createHabitsPresenter({ initial, fetcher, browser, storage }: Ha
 		editingHabit: restoredHabitModal.editing,
 		editingGoal: restoredGoalModal.editing
 	});
+	const { subscribe, update, set } = state;
 
 	const getState = () => {
 		let current: HabitsState;
@@ -178,8 +179,8 @@ export function createHabitsPresenter({ initial, fetcher, browser, storage }: Ha
 		update((state) => ({ ...state, habitsLoading: true, habitsError: null }));
 		try {
 			const [habitsRes, goalsRes] = await Promise.all([
-				fetcher('/api/habits'),
-				fetcher('/api/goals')
+				fetcher('/api/habits', { cache: 'no-store' }),
+				fetcher('/api/goals', { cache: 'no-store' })
 			]);
 
 			if (!habitsRes.ok || !goalsRes.ok) {
@@ -267,7 +268,7 @@ export function createHabitsPresenter({ initial, fetcher, browser, storage }: Ha
 	}
 
 	return {
-		state: { subscribe },
+		state: { subscribe, set },
 		initData,
 		setActiveTab,
 		refreshData,
