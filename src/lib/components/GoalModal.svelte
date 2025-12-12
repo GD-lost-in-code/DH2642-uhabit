@@ -244,8 +244,7 @@
 							type="button"
 							class="flex items-center gap-3 p-3 rounded-lg border transition-colors text-left"
 							class:border-primary-500={selectedHabitIds.has(habit.id)}
-							class:bg-primary-50={selectedHabitIds.has(habit.id)}
-							class:dark:bg-primary-900={selectedHabitIds.has(habit.id)}
+							class:bg-primary-50-900={selectedHabitIds.has(habit.id)}
 							class:border-surface-200-700={!selectedHabitIds.has(habit.id)}
 							onclick={() => toggleHabit(habit.id)}
 						>

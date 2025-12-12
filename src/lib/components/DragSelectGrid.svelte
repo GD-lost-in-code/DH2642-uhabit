@@ -98,7 +98,7 @@
 			class="
 				h-10 text-sm sm:text-[13px] sm:h-8 flex items-center justify-center
 				cursor-pointer transition-all duration-150 rounded-md border font-medium
-				bg-surface-50-900 text-surface-900 dark:text-surface-50 hover:bg-surface-100-800
+				bg-surface-50-900 text-surface-900-50 hover:bg-surface-100-800
 			"
 			class:border-primary-500={selected.has(item)}
 			class:ring-2={selected.has(item)}
