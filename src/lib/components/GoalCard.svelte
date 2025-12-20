@@ -32,6 +32,14 @@
 	}
 
 	const formatUnitCount = (val: number) => (Number.isInteger(val) ? `${val}` : val.toFixed(1));
+	const limitList = (items: string[], limit = 3) => {
+		const full = items.join(', ');
+		if (items.length <= limit) return { full, compact: full };
+		return {
+			full,
+			compact: `${items.slice(0, limit).join(', ')} +${items.length - limit} more`
+		};
+	};
 
 	// Whether goal has today's status
 	const hasTodayStatus = $derived('todayCompleted' in goal);
@@ -46,30 +54,43 @@
 		return isHabitWithStatus(h) ? h.habit : h;
 	}
 
-	function formatFrequency(h: Habit) {
-		if (h.frequency === 'daily') return 'Daily';
+	function formatFrequency(h: Habit): { full: string; compact: string } {
+		if (h.frequency === 'daily') return { full: 'Daily', compact: 'Daily' };
 		if (h.frequency === 'weekly') {
-			if (!h.period?.length) return 'Weekly';
+			if (!h.period?.length) return { full: 'Weekly', compact: 'Weekly' };
 			const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-			return `Weekly on ${h.period.map((d) => labels[d] || d).join(', ')}`;
+			const days = h.period.map((d) => labels[d] || `${d}`);
+			const { full, compact } = limitList(days, 4);
+			return { full: `Weekly on ${full}`, compact: `Weekly on ${compact}` };
 		}
-		if (!h.period?.length) return 'Monthly';
+		if (!h.period?.length) return { full: 'Monthly', compact: 'Monthly' };
 		const suffix = (n: number) => {
 			if (n % 10 === 1 && n % 100 !== 11) return `${n}st`;
 			if (n % 10 === 2 && n % 100 !== 12) return `${n}nd`;
 			if (n % 10 === 3 && n % 100 !== 13) return `${n}rd`;
 			return `${n}th`;
 		};
-		return `Monthly on ${h.period.map(suffix).join(', ')}`;
+		const dates = h.period.map(suffix);
+		const { full, compact } = limitList(dates, 3);
+		return { full: `Monthly on ${full}`, compact: `Monthly on ${compact}` };
 	}
 
 	const habits = $derived(goal.habits || []);
 	const habitCount = $derived(habits.length);
 </script>
 
-<div class="rounded-xl border border-surface-200-700 bg-surface-50-900 overflow-hidden">
+<div
+	class="rounded-xl border-[1.5px] border-surface-200 dark:border-surface-700 bg-surface-100 dark:bg-surface-800 overflow-hidden"
+>
 	<!-- Header -->
-	<div class="flex items-center gap-4 p-4 hover:bg-surface-100-800 transition-colors">
+	<div
+		class="flex items-center gap-4 p-4 min-h-[68px] hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+	>
+		<!-- Color indicator -->
+		{#if goal.color}
+			<div class="w-3 h-8 rounded-full shrink-0" style="background-color: {goal.color}"></div>
+		{/if}
+
 		<!-- Expand/Collapse -->
 		<button
 			type="button"
@@ -90,16 +111,17 @@
 				<h3 class="font-semibold truncate">{goal.title}</h3>
 				{#if goal.isCompleted}
 					<span
-						class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+						class="text-xs px-2 py-0.5 rounded-full bg-success-100 text-success-700 dark:bg-success-900 dark:text-success-300"
 					>
 						Complete
 					</span>
 				{/if}
 			</div>
-			<div class="flex items-center gap-2 text-xs text-surface-500 mt-1">
-				<Calendar size={12} />
-				<span>{formatDateRange(goal.startDate, goal.endDate)}</span>
-				<span class="mx-1">·</span>
+			<div class="flex flex-col gap-1 text-xs text-surface-500 mt-1">
+				<span class="flex items-center gap-1">
+					<Calendar size={12} />
+					{formatDateRange(goal.startDate, goal.endDate)}
+				</span>
 				<span>{habitCount} habit{habitCount !== 1 ? 's' : ''}</span>
 			</div>
 		</button>
@@ -116,14 +138,35 @@
 					<div class="text-xs text-surface-500">today</div>
 				</div>
 			{/if}
-			<div class="w-16 h-2 bg-surface-200-700 rounded-full overflow-hidden">
-				<div
-					class="h-full bg-primary-500 transition-all duration-300"
-					style="width: {goal.progressPercentage}%"
-				></div>
+			<!-- Circular progress indicator -->
+			<div class="relative w-10 h-10 shrink-0">
+				<svg class="w-full h-full -rotate-90" viewBox="0 0 36 36">
+					<!-- Background circle -->
+					<circle
+						class="stroke-surface-300 dark:stroke-surface-600"
+						stroke-width="3"
+						fill="none"
+						cx="18"
+						cy="18"
+						r="15"
+					/>
+					<!-- Progress circle -->
+					<circle
+						class="stroke-primary-500 transition-all duration-300"
+						stroke-width="3"
+						stroke-linecap="round"
+						fill="none"
+						cx="18"
+						cy="18"
+						r="15"
+						stroke-dasharray="94.2"
+						stroke-dashoffset={94.2 - (94.2 * goal.progressPercentage) / 100}
+					/>
+				</svg>
+				<span class="absolute inset-0 flex items-center justify-center text-[10px] font-medium">
+					{Math.round(goal.progressPercentage)}%
+				</span>
 			</div>
-			<span class="text-sm font-medium w-10 text-right">{Math.round(goal.progressPercentage)}%</span
-			>
 		</div>
 
 		<!-- Edit Button -->
@@ -159,6 +202,7 @@
 					{#each habits as habitItem}
 						{@const habit = getHabitData(habitItem)}
 						{@const hasStatus = isHabitWithStatus(habitItem)}
+						{@const frequency = formatFrequency(habit)}
 						<div class="px-4 py-3 flex items-center gap-3">
 							<!-- Color indicator -->
 							{#if habit.color}
@@ -169,7 +213,8 @@
 							<div class="flex-1 min-w-0">
 								<div class="font-medium text-sm truncate">{habit.title}</div>
 								<span
-									class="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-primary-50-900 text-primary-900-100 mt-0.5"
+									class="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-primary-50-900 text-primary-900-100 mt-0.5 max-w-full min-w-0"
+									title={frequency.full}
 								>
 									<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 										<path
@@ -179,7 +224,7 @@
 											d="M8 7h8M8 11h8m-6 4h6M5 4h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"
 										/>
 									</svg>
-									<span class="truncate">{formatFrequency(habit)}</span>
+									<span class="truncate">{frequency.compact}</span>
 								</span>
 							</div>
 
@@ -189,8 +234,8 @@
 								{#if habit.measurement === 'boolean'}
 									<div
 										class="w-6 h-6 rounded-full border-2 flex items-center justify-center"
-										class:border-green-500={status.isCompleted}
-										class:bg-green-500={status.isCompleted}
+										class:border-success-500={status.isCompleted}
+										class:bg-success-500={status.isCompleted}
 										class:border-surface-300-600={!status.isCompleted}
 									>
 										{#if status.isCompleted}

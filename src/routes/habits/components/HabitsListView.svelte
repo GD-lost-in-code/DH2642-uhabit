@@ -26,7 +26,7 @@
 		{/each}
 	</div>
 {:else if state.habitsError}
-	<p class="text-center text-sm text-red-600">{state.habitsError}</p>
+	<p class="text-center text-sm text-error-600">{state.habitsError}</p>
 {:else if state.activeTab === 0}
 	{#if !hasHabits}
 		<p class="text-center text-surface-500 py-8">
@@ -51,7 +51,7 @@
 		No goals yet. Create a goal to organize your habits!
 	</p>
 {:else}
-	<div class="flex flex-col gap-4">
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-7 items-start">
 		{#each state.goals as goal (goal.id)}
 			<GoalCard {goal} onedit={openGoalModal} />
 		{/each}

@@ -38,9 +38,13 @@
 		return habits.map((h) => ('habit' in h ? h.habit : h));
 	});
 
+	// Color options (same as habits for consistency)
+	const colors = ['#E0E0E0', '#CCCCCC', '#B8B8B8', '#A4A4A4', '#909090', '#7C7C7C', '#686868'];
+
 	// Form state
 	let title = $state('');
 	let description = $state('');
+	let selectedColor = $state(colors[2]);
 	let startDate = $state('');
 	let endDate = $state('');
 	let selectedHabitIds = $state<Set<string>>(new Set());
@@ -55,9 +59,16 @@
 		showHabitModal = true;
 	};
 
-	// Format date for input
-	function formatDateForInput(date: Date | string): string {
-		const d = new Date(date);
+	// Format date for input (handles Date, string, or timestamp number)
+	function formatDateForInput(date: Date | string | number | null | undefined): string {
+		if (!date) return '';
+		// Handle timestamp stored as string
+		let parsed = date;
+		if (typeof date === 'string' && /^\d+$/.test(date)) {
+			parsed = parseInt(date, 10);
+		}
+		const d = new Date(parsed);
+		if (isNaN(d.getTime())) return '';
 		return d.toISOString().split('T')[0];
 	}
 
@@ -67,6 +78,7 @@
 			if (goal) {
 				title = goal.title;
 				description = goal.description ?? '';
+				selectedColor = goal.color ?? colors[2];
 				startDate = formatDateForInput(goal.startDate);
 				endDate = formatDateForInput(goal.endDate);
 				// Pre-select habits attached to the goal
@@ -74,6 +86,7 @@
 			} else {
 				title = '';
 				description = '';
+				selectedColor = colors[2];
 				// Default to today and one month from now
 				const today = new Date();
 				const oneMonthLater = new Date();
@@ -119,6 +132,7 @@
 		const goalData: Partial<Goal> = {
 			title: title.trim(),
 			description: description.trim() || null,
+			color: selectedColor,
 			startDate: new Date(startDate + 'T00:00:00Z'),
 			endDate: new Date(endDate + 'T23:59:59Z')
 		};
@@ -162,14 +176,14 @@
 <Modal {open} title={modalTitle} {onclose}>
 	<form onsubmit={handleSubmit} class="flex flex-col gap-6">
 		{#if error}
-			<p class="text-red-600 text-sm text-center">{error}</p>
+			<p class="text-error-600 text-sm text-center">{error}</p>
 		{/if}
 
 		<!-- Goal Details -->
 		<div class="flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
 				<label for="goal-title" class="text-sm font-medium"
-					>Title <span class="text-red-500">*</span></label
+					>Title <span class="text-error-500">*</span></label
 				>
 				<input
 					id="goal-title"
@@ -192,10 +206,36 @@
 				></textarea>
 			</div>
 
+			<div class="flex flex-col gap-1">
+				<span class="text-sm font-medium">Color</span>
+				<div class="flex gap-2 flex-wrap">
+					{#each colors as color}
+						<button
+							type="button"
+							class="relative w-9 h-9 rounded-full border-2 transition-all duration-150"
+							style="background-color: {color};"
+							class:border-primary-500={selectedColor === color}
+							class:ring-2={selectedColor === color}
+							class:ring-primary-200={selectedColor === color}
+							class:border-transparent={selectedColor !== color}
+							onclick={() => (selectedColor = color)}
+							aria-label={`Select color ${color}`}
+							aria-pressed={selectedColor === color}
+						>
+							{#if selectedColor === color}
+								<span
+									class="absolute inset-0 m-auto w-3 h-3 rounded-full bg-white/80 dark:bg-black/70"
+								></span>
+							{/if}
+						</button>
+					{/each}
+				</div>
+			</div>
+
 			<div class="grid grid-cols-2 gap-4">
 				<div class="flex flex-col gap-1">
 					<label for="goal-start" class="text-sm font-medium"
-						>Start Date <span class="text-red-500">*</span></label
+						>Start Date <span class="text-error-500">*</span></label
 					>
 					<input
 						id="goal-start"
@@ -207,7 +247,7 @@
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="goal-end" class="text-sm font-medium"
-						>End Date <span class="text-red-500">*</span></label
+						>End Date <span class="text-error-500">*</span></label
 					>
 					<input
 						id="goal-end"
@@ -240,14 +280,6 @@
 					Delete
 				</button>
 			{/if}
-			<button
-				type="button"
-				class="px-4 py-2 text-sm rounded-md border border-surface-400-600 hover:bg-surface-200-800 transition-colors"
-				onclick={onclose}
-				disabled={isSubmitting}
-			>
-				Cancel
-			</button>
 			<button
 				type="submit"
 				class="px-4 py-2 text-sm rounded-md bg-primary-500 text-white hover:bg-primary-600 transition-colors disabled:opacity-50"
