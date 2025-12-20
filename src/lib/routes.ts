@@ -7,10 +7,7 @@ export const routes = {
 	register: '/register',
 
 	overview: '/overview',
-	habits: {
-		list: '/habits',
-		new: '/habits/new'
-	},
+	habits: '/habits',
 	statistics: '/statistics',
 	settings: '/settings'
 };

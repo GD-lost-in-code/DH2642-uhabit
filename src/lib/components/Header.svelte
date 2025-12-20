@@ -53,7 +53,7 @@
 
 	const navItems = [
 		{ href: routes.overview, label: 'Overview' },
-		{ href: routes.habits.list, label: 'Habits' },
+		{ href: routes.habits, label: 'Habits' },
 		{ href: routes.statistics, label: 'Statistics' }
 	];
 
