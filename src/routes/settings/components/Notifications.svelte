@@ -9,6 +9,7 @@
 		unsubscribeFromPush,
 		type PushStatus
 	} from '$lib/notifications/push';
+	import { Switch } from '@skeletonlabs/skeleton-svelte';
 	import FieldWrapper from './FieldWrapper.svelte';
 	import { Bell, BellOff, Flame, Target, Calendar, Clock, AlertCircle } from '@lucide/svelte';
 
@@ -80,8 +81,7 @@
 		return origMap[field]?.() ?? false;
 	};
 
-	function handleToggle(field: string, event: Event) {
-		const value = (event.target as HTMLInputElement).checked;
+	function handleToggle(field: string, value: boolean) {
 		draftSetters[field]?.(value);
 		settingsChanges.setField(field as any, getOriginal(field), value);
 		onFieldChange?.(field, value);
@@ -104,7 +104,6 @@
 				if (success) {
 					pushStatus = 'unsubscribed';
 					draftPushEnabled = false;
-					settingsChanges.setField('pushEnabled', pushEnabled, false);
 					onFieldChange?.('pushEnabled', false);
 				}
 			} else {
@@ -112,10 +111,8 @@
 				if (success) {
 					pushStatus = 'subscribed';
 					draftPushEnabled = true;
-					settingsChanges.setField('pushEnabled', pushEnabled, true);
 					onFieldChange?.('pushEnabled', true);
 				} else {
-					// Check if permission was denied
 					pushStatus = await getPushStatus();
 				}
 			}
@@ -196,8 +193,8 @@
 
 		<div class="space-y-4">
 			<!-- Habit Reminders -->
-			<label
-				class="flex items-center justify-between cursor-pointer p-3 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+			<div
+				class="flex items-center justify-between p-3 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
 			>
 				<div class="flex items-center gap-3">
 					<div class="p-2 rounded-full bg-primary-100 dark:bg-primary-900/30">
@@ -210,17 +207,21 @@
 						</p>
 					</div>
 				</div>
-				<input
-					type="checkbox"
-					class="checkbox"
+				<Switch
+					name="habitReminders"
 					checked={draftHabitReminders}
-					onchange={(e) => handleToggle('habitReminders', e)}
-				/>
-			</label>
+					onCheckedChange={(e) => handleToggle('habitReminders', e.checked)}
+				>
+					<Switch.Control>
+						<Switch.Thumb />
+					</Switch.Control>
+					<Switch.HiddenInput />
+				</Switch>
+			</div>
 
 			<!-- Streak Milestones -->
-			<label
-				class="flex items-center justify-between cursor-pointer p-3 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+			<div
+				class="flex items-center justify-between p-3 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
 			>
 				<div class="flex items-center gap-3">
 					<div class="p-2 rounded-full bg-orange-100 dark:bg-orange-900/30">
@@ -233,17 +234,21 @@
 						</p>
 					</div>
 				</div>
-				<input
-					type="checkbox"
-					class="checkbox"
+				<Switch
+					name="streakMilestones"
 					checked={draftStreakMilestones}
-					onchange={(e) => handleToggle('streakMilestones', e)}
-				/>
-			</label>
+					onCheckedChange={(e) => handleToggle('streakMilestones', e.checked)}
+				>
+					<Switch.Control>
+						<Switch.Thumb />
+					</Switch.Control>
+					<Switch.HiddenInput />
+				</Switch>
+			</div>
 
 			<!-- Goal Progress -->
-			<label
-				class="flex items-center justify-between cursor-pointer p-3 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+			<div
+				class="flex items-center justify-between p-3 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
 			>
 				<div class="flex items-center gap-3">
 					<div class="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
@@ -256,17 +261,21 @@
 						</p>
 					</div>
 				</div>
-				<input
-					type="checkbox"
-					class="checkbox"
+				<Switch
+					name="goalProgress"
 					checked={draftGoalProgress}
-					onchange={(e) => handleToggle('goalProgress', e)}
-				/>
-			</label>
+					onCheckedChange={(e) => handleToggle('goalProgress', e.checked)}
+				>
+					<Switch.Control>
+						<Switch.Thumb />
+					</Switch.Control>
+					<Switch.HiddenInput />
+				</Switch>
+			</div>
 
 			<!-- Holiday Suggestions -->
-			<label
-				class="flex items-center justify-between cursor-pointer p-3 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+			<div
+				class="flex items-center justify-between p-3 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
 			>
 				<div class="flex items-center gap-3">
 					<div class="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
@@ -279,13 +288,17 @@
 						</p>
 					</div>
 				</div>
-				<input
-					type="checkbox"
-					class="checkbox"
+				<Switch
+					name="holidaySuggestions"
 					checked={draftHolidaySuggestions}
-					onchange={(e) => handleToggle('holidaySuggestions', e)}
-				/>
-			</label>
+					onCheckedChange={(e) => handleToggle('holidaySuggestions', e.checked)}
+				>
+					<Switch.Control>
+						<Switch.Thumb />
+					</Switch.Control>
+					<Switch.HiddenInput />
+				</Switch>
+			</div>
 		</div>
 	</div>
 

@@ -6,8 +6,10 @@
 	import type { UserSettingsResponse } from '$lib/auth/client';
 	import { STORAGE_KEYS } from '$lib/constants';
 	import { themeMode as themeStore, type ThemeMode } from '$lib/stores/theme';
+	import { reduceMotion as motionStore } from '$lib/stores/reduceMotion';
 	import { settingsChanges, hasUnsavedChanges } from '$lib/stores/settingsChanges';
 	import { avatarUrl as avatarStore } from '$lib/stores/avatar';
+	import { userCountry } from '$lib/stores/country';
 	import { toaster } from '$lib/stores/toaster';
 	import PublicProfile from './components/PublicProfile.svelte';
 	import Account from './components/Account.svelte';
@@ -25,6 +27,8 @@
 	let username = $state('');
 	let email = $state('');
 	let currentTheme = $state<ThemeMode>('system');
+	let currentReduceMotion = $state<boolean>(false);
+	let country = $state('');
 	let accentColor = $state('');
 	let typography = $state('');
 
@@ -60,9 +64,19 @@
 	function applyPreferences(s: UserSettingsResponse) {
 		currentTheme = (s.theme as ThemeMode) || 'system';
 		themeStore.set(currentTheme);
+		country = s.country ?? '';
+		userCountry.set(s.country ?? null);
 		bio = s.preferences?.bio ?? '';
 		accentColor = s.preferences?.accentColor ?? '';
 		typography = s.preferences?.typography ?? '';
+	}
+
+	function initializeLocalPreferences() {
+		// Subscribe once to get initial value
+		const unsubscribe = motionStore.subscribe((value) => {
+			currentReduceMotion = value;
+		});
+		unsubscribe();
 	}
 
 	function applyNotificationPrefs(notifPrefs: UserSettingsResponse['preferences']) {
@@ -83,6 +97,8 @@
 			username,
 			email,
 			theme: currentTheme,
+			reduceMotion: currentReduceMotion,
+			country,
 			accentColor,
 			typography,
 			pushEnabled,
@@ -99,6 +115,7 @@
 		applyProfileSettings(settings);
 		applyPreferences(settings);
 		applyNotificationPrefs(settings.preferences);
+		initializeLocalPreferences();
 		if (setAsOriginal) captureOriginalValues();
 	};
 
@@ -197,6 +214,7 @@
 				pronouns,
 				username,
 				theme: currentTheme,
+				country: country || undefined,
 				preferences: {
 					bio,
 					accentColor,
@@ -244,6 +262,14 @@
 			currentTheme = v as ThemeMode;
 			themeStore.set(currentTheme);
 		},
+		reduceMotion: (v) => {
+			currentReduceMotion = v as boolean;
+			motionStore.set(currentReduceMotion);
+		},
+		country: (v) => {
+			country = v as string;
+			userCountry.set(country || null);
+		},
 		accentColor: (v) => (accentColor = v as string),
 		typography: (v) => (typography = v as string),
 		pushEnabled: (v) => (pushEnabled = v as boolean),
@@ -273,11 +299,11 @@
 	{/if}
 
 	<!-- MAIN CONTENT -->
-	<main class="flex-1 p-6 max-w-4xl space-y-16" class:pb-24={isMobile}>
+	<main class="flex-1 p-6 max-w-4xl space-y-16" class:pb-40={isMobile}>
 		{#if isLoading}
 			<SettingsSkeleton />
 		{:else}
-			<section id="profile">
+			<section id="profile" class="scroll-mt-20">
 				<PublicProfile
 					{displayName}
 					{bio}
@@ -288,7 +314,7 @@
 				/>
 			</section>
 			<hr class="border-surface-200 dark:border-surface-700" />
-			<section id="account">
+			<section id="account" class="scroll-mt-20">
 				<Account
 					{username}
 					{email}
@@ -296,16 +322,18 @@
 				/>
 			</section>
 			<hr class="border-surface-200 dark:border-surface-700" />
-			<section id="preferences">
+			<section id="preferences" class="scroll-mt-20">
 				<Preferences
 					{currentTheme}
+					reduceMotion={currentReduceMotion}
+					{country}
 					{accentColor}
 					{typography}
 					onFieldChange={(field, value) => fieldSetters[field]?.(value)}
 				/>
 			</section>
 			<hr class="border-surface-200 dark:border-surface-700" />
-			<section id="notifications">
+			<section id="notifications" class="scroll-mt-20">
 				<Notifications
 					{pushEnabled}
 					{habitReminders}
@@ -324,5 +352,5 @@
 	{/if}
 
 	<!-- FLOATING SAVE BAR -->
-	<SaveBar onSave={handleSaveAll} onDiscard={handleDiscardAll} {isSaving} />
+	<SaveBar onSave={handleSaveAll} onDiscard={handleDiscardAll} {isSaving} {isMobile} />
 </div>

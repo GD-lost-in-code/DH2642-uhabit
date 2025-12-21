@@ -5,6 +5,7 @@
 	import ColorPicker from './ColorPicker.svelte';
 	import DateInput from './DateInput.svelte';
 	import FormField from './FormField.svelte';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 	import type {
 		Goal,
 		GoalWithHabits,
@@ -12,6 +13,7 @@
 		GoalWithProgress
 	} from '$lib/types/goal';
 	import type { Habit, HabitWithStatus } from '$lib/types/habit';
+	import { PASTEL_COLORS, DEFAULT_COLOR_INDEX } from '$lib/constants';
 	import { z } from 'zod';
 	import { toaster } from '$lib/stores/toaster';
 
@@ -60,17 +62,18 @@
 	});
 
 	// Color options (same as habits for consistency)
-	const colors = ['#E0E0E0', '#CCCCCC', '#B8B8B8', '#A4A4A4', '#909090', '#7C7C7C', '#686868'];
+	const colors = PASTEL_COLORS;
 
 	// Form state
 	let title = $state('');
 	let description = $state('');
-	let selectedColor = $state(colors[2]);
+	let selectedColor = $state(colors[DEFAULT_COLOR_INDEX]);
 	let startDate = $state('');
 	let endDate = $state('');
 	let selectedHabitIds = $state<Set<string>>(new Set());
 
 	let isSubmitting = $state(false);
+	let showDeleteConfirm = $state(false);
 
 	// Field-level errors for accessibility
 	let fieldErrors = $state<Record<string, string | null>>({
@@ -127,7 +130,7 @@
 			if (goal) {
 				title = goal.title;
 				description = goal.description ?? '';
-				selectedColor = goal.color ?? colors[2];
+				selectedColor = goal.color ?? colors[DEFAULT_COLOR_INDEX];
 				startDate = formatDateForInput(goal.startDate);
 				endDate = formatDateForInput(goal.endDate);
 				// Pre-select habits attached to the goal
@@ -135,7 +138,7 @@
 			} else {
 				title = '';
 				description = '';
-				selectedColor = colors[2];
+				selectedColor = colors[DEFAULT_COLOR_INDEX];
 				// Default to today and one month from now
 				const today = new Date();
 				const oneMonthLater = new Date();
@@ -328,8 +331,8 @@
 			{#if isEditMode && goal?.id && ondelete}
 				<button
 					type="button"
-					class="px-4 py-2 text-sm rounded-md border border-error-500 text-error-600 hover:bg-error-50 transition-colors"
-					onclick={() => ondelete(goal.id!)}
+					class="px-4 py-2 text-sm rounded-md border border-error-500 text-error-600 hover:bg-error-50 dark:hover:bg-error-950 transition-colors"
+					onclick={() => (showDeleteConfirm = true)}
 					disabled={isSubmitting}
 				>
 					Delete
@@ -354,3 +357,16 @@
 		onsave={handleCreateHabit}
 	/>
 {/if}
+
+<ConfirmDialog
+	open={showDeleteConfirm && !!goal?.id && !!ondelete}
+	title="Delete Goal"
+	confirmLabel="Delete"
+	oncancel={() => (showDeleteConfirm = false)}
+	onconfirm={() => {
+		showDeleteConfirm = false;
+		ondelete?.(goal!.id!);
+	}}
+>
+	Are you sure you want to delete "<strong>{goal?.title}</strong>"? This action cannot be undone.
+</ConfirmDialog>

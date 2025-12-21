@@ -5,7 +5,9 @@
 	import SelectOrEdit from './SelectOrEdit.svelte';
 	import ColorPicker from './ColorPicker.svelte';
 	import FormField from './FormField.svelte';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 	import type { Habit } from '$lib/types/habit';
+	import { PASTEL_COLORS, DEFAULT_COLOR_INDEX } from '$lib/constants';
 	import { z } from 'zod';
 	import { toaster } from '$lib/stores/toaster';
 
@@ -48,15 +50,7 @@
 	const isEditMode = $derived(!!habit);
 	const modalTitle = $derived(isEditMode ? 'Edit Habit' : 'New Habit');
 
-	const colors = [
-		'#BFD7EA', // pastel blue
-		'#FFF1B6', // pastel yellow
-		'#CDEAC0', // pastel green
-		'#FFD6A5', // pastel orange
-		'#FFADAD', // pastel red
-		'#FBC4E2', // pastel pink
-		'#DCC6E0' // pastel purple
-	];
+	const colors = PASTEL_COLORS;
 
 	const frequencyArr = [
 		{ value: 'daily', label: 'Daily (every day)' },
@@ -67,13 +61,14 @@
 	// Form state
 	let title = $state('');
 	let notes = $state('');
-	let selectedColor = $state(colors[2]);
+	let selectedColor = $state(colors[DEFAULT_COLOR_INDEX]);
 	let selectedFrequency = $state<string>('daily');
 	let targetAmount = $state<number | null>(null);
 	let unit = $state('');
 	let period = $state<number[]>([]);
 
 	let isSubmitting = $state(false);
+	let showDeleteConfirm = $state(false);
 
 	// Field-level errors for accessibility
 	let fieldErrors = $state<Record<string, string | null>>({
@@ -110,7 +105,7 @@
 			if (habit) {
 				title = habit.title;
 				notes = habit.notes ?? '';
-				selectedColor = habit.color ?? colors[2];
+				selectedColor = habit.color ?? colors[DEFAULT_COLOR_INDEX];
 				selectedFrequency = habit.frequency;
 				targetAmount = habit.targetAmount;
 				unit = habit.unit ?? '';
@@ -118,7 +113,7 @@
 			} else {
 				title = '';
 				notes = '';
-				selectedColor = colors[2];
+				selectedColor = colors[DEFAULT_COLOR_INDEX];
 				selectedFrequency = 'daily';
 				targetAmount = null;
 				unit = '';
@@ -268,7 +263,7 @@
 						<input
 							id="habit-target"
 							type="number"
-							class="border w-24 h-10 rounded-md text-sm px-3 bg-surface-200-800 focus:outline-none focus:ring-2 focus:ring-primary-500 text-right"
+							class="border w-24 h-11 rounded-md text-sm px-3 bg-surface-200-800 focus:outline-none focus:ring-2 focus:ring-primary-500 text-right"
 							class:border-surface-400-600={!fieldErrors.targetAmount}
 							class:border-error-500={fieldErrors.targetAmount}
 							placeholder="100"
@@ -305,8 +300,8 @@
 			{#if habit?.id && ondelete}
 				<button
 					type="button"
-					class="px-4 py-2 text-sm rounded-md border border-error-500 text-error-600 hover:bg-error-50 transition-colors"
-					onclick={() => ondelete(habit.id!)}
+					class="px-4 py-2 text-sm rounded-md border border-error-500 text-error-600 hover:bg-error-50 dark:hover:bg-error-950 transition-colors"
+					onclick={() => (showDeleteConfirm = true)}
 					disabled={isSubmitting}
 				>
 					Delete
@@ -322,3 +317,16 @@
 		</div>
 	</form>
 </Modal>
+
+<ConfirmDialog
+	open={showDeleteConfirm && !!habit?.id && !!ondelete}
+	title="Delete Habit"
+	confirmLabel="Delete"
+	oncancel={() => (showDeleteConfirm = false)}
+	onconfirm={() => {
+		showDeleteConfirm = false;
+		ondelete?.(habit!.id!);
+	}}
+>
+	Are you sure you want to delete "<strong>{habit?.title}</strong>"? This action cannot be undone.
+</ConfirmDialog>
