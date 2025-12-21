@@ -16,7 +16,6 @@
 			id: string;
 			name?: string | null;
 			username?: string | null;
-			displayName?: string | null;
 			email?: string | null;
 			image?: string | null;
 		} | null;
@@ -24,12 +23,7 @@
 
 	const currentPath = $derived($page.url.pathname);
 	const initials = $derived.by(() => {
-		const source =
-			user?.displayName?.trim() ||
-			user?.username?.trim() ||
-			user?.name?.trim() ||
-			user?.email?.trim() ||
-			'';
+		const source = user?.name?.trim() || user?.username?.trim() || user?.email?.trim() || '';
 		if (!source) return 'U';
 		const parts = source.split(/\s+/).filter(Boolean);
 		if (parts.length >= 2) {
