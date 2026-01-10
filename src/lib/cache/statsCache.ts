@@ -95,7 +95,8 @@ export function createStatsCache() {
 					lastCompletionsSync: result.lastCompletionsSync
 						? new Date(result.lastCompletionsSync)
 						: null,
-					lastStatsCompute: result.lastStatsCompute ? new Date(result.lastStatsCompute) : null
+					lastStatsCompute: result.lastStatsCompute ? new Date(result.lastStatsCompute) : null,
+					userId: result.userId ?? null
 				});
 			};
 		});
@@ -115,7 +116,8 @@ export function createStatsCache() {
 			lastCompletionsSync: pickValue(meta.lastCompletionsSync, existing?.lastCompletionsSync, null),
 			lastStatsCompute: pickValue(meta.lastStatsCompute, existing?.lastStatsCompute, null),
 			habitsETag: pickValue(meta.habitsETag, existing?.habitsETag, null),
-			version: pickValue(meta.version, existing?.version, 1)
+			version: pickValue(meta.version, existing?.version, 1),
+			userId: pickValue(meta.userId, existing?.userId, null)
 		};
 	}
 

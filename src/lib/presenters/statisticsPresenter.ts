@@ -157,83 +157,6 @@ export function createStatisticsPresenter({
 		return heatmapRange.from < historyStart ? heatmapRange.from : historyStart;
 	}
 
-	async function syncFromCache(fetchFrom: Date): Promise<void> {
-		if (!cache) return;
-		habits = await cache.getHabits();
-		completions = await cache.getCompletions();
-
-		const metadata = await cache.getMetadata();
-		const lastSync = metadata?.lastCompletionsSync || fetchFrom;
-
-		try {
-			const newCompletions = await api.fetchCompletions(lastSync);
-			if (newCompletions.length > 0) {
-				const existingIds = new Set(completions.map((c) => c.id));
-				const uniqueNew = newCompletions.filter((c) => !existingIds.has(c.id));
-				completions = [...completions, ...uniqueNew];
-				await cache.addCompletions(uniqueNew);
-			}
-
-			habits = await api.fetchHabits();
-			await cache.setHabits(habits);
-			await cache.setMetadata({ lastHabitsSync: new Date(), lastCompletionsSync: new Date() });
-			update((s) => ({ ...s, isOffline: false }));
-		} catch (error) {
-			console.warn('Sync failed, using cached data:', error);
-			update((s) => ({ ...s, isOffline: true }));
-		}
-	}
-
-	async function tryColdStartFromServerCache(
-		scope: Scope,
-		date: Date,
-		fetchFrom: Date
-	): Promise<boolean> {
-		const dateKey = getDateKey(scope, date);
-		try {
-			const serverCache = await api.getServerCache(scope, dateKey);
-			if (serverCache) {
-				applyStats(serverCache.data);
-				update((s) => ({ ...s, isSyncing: false, lastSync: new Date() }));
-				api.fetchHabits().then((h) => (habits = h));
-				api.fetchCompletions(fetchFrom).then((c) => (completions = c));
-				return true;
-			}
-		} catch {
-			// Server cache miss - continue with full fetch
-		}
-		return false;
-	}
-
-	async function syncColdStart(fetchFrom: Date): Promise<boolean> {
-		try {
-			habits = await api.fetchHabits();
-			completions = await api.fetchCompletions(fetchFrom);
-
-			if (cache) {
-				await cache.setHabits(habits);
-				await cache.addCompletions(completions);
-				await cache.setMetadata({
-					lastHabitsSync: new Date(),
-					lastCompletionsSync: new Date(),
-					version: 1
-				});
-			}
-			update((s) => ({ ...s, isOffline: false }));
-			return true;
-		} catch (error) {
-			console.error('Initial fetch failed:', error);
-			update((s) => ({
-				...s,
-				isLoading: false,
-				isSyncing: false,
-				isOffline: true,
-				error: 'Failed to load data. Please check your connection.'
-			}));
-			return false;
-		}
-	}
-
 	function saveToServerCache(scope: Scope, date: Date, computed: ComputedStatistics): void {
 		const dateKey = getDateKey(scope, date);
 		const validUntil = new Date();
@@ -252,17 +175,76 @@ export function createStatisticsPresenter({
 			const fetchFrom = getFetchFromDate(heatmapRange);
 			const metadata = cache ? await cache.getMetadata() : null;
 
-			if (cache && metadata?.lastHabitsSync) {
-				await syncFromCache(fetchFrom);
-			} else {
-				const usedServerCache = await tryColdStartFromServerCache(
-					currentState.scope,
-					currentState.selectedDate,
-					fetchFrom
-				);
-				if (usedServerCache) return;
-				const success = await syncColdStart(fetchFrom);
-				if (!success) return;
+			// Always fetch habits first to validate cache ownership
+			let currentUserId: string | null = null;
+			try {
+				const freshHabits = await api.fetchHabits();
+				currentUserId = freshHabits.length > 0 ? freshHabits[0].userId : null;
+
+				// If cached userId doesn't match current user, clear cache and do cold start
+				if (metadata?.userId && currentUserId && metadata.userId !== currentUserId) {
+					console.log('User changed, clearing statistics cache');
+					if (cache) {
+						await cache.clearAll();
+					}
+					habits = freshHabits;
+					completions = await api.fetchCompletions(fetchFrom);
+					if (cache) {
+						await cache.setHabits(habits);
+						await cache.addCompletions(completions);
+						await cache.setMetadata({
+							lastHabitsSync: new Date(),
+							lastCompletionsSync: new Date(),
+							version: 1,
+							userId: currentUserId
+						});
+					}
+				} else if (cache && metadata?.lastHabitsSync) {
+					// Use cache but update with fresh habits
+					habits = freshHabits;
+					completions = await cache.getCompletions();
+
+					const lastSync = metadata.lastCompletionsSync || fetchFrom;
+					const newCompletions = await api.fetchCompletions(lastSync);
+					if (newCompletions.length > 0) {
+						const existingIds = new Set(completions.map((c) => c.id));
+						const uniqueNew = newCompletions.filter((c) => !existingIds.has(c.id));
+						completions = [...completions, ...uniqueNew];
+						await cache.addCompletions(uniqueNew);
+					}
+
+					await cache.setHabits(habits);
+					await cache.setMetadata({
+						lastHabitsSync: new Date(),
+						lastCompletionsSync: new Date(),
+						userId: currentUserId
+					});
+				} else {
+					// Cold start - no valid cache
+					habits = freshHabits;
+					completions = await api.fetchCompletions(fetchFrom);
+					if (cache) {
+						await cache.setHabits(habits);
+						await cache.addCompletions(completions);
+						await cache.setMetadata({
+							lastHabitsSync: new Date(),
+							lastCompletionsSync: new Date(),
+							version: 1,
+							userId: currentUserId
+						});
+					}
+				}
+				update((s) => ({ ...s, isOffline: false }));
+			} catch (error) {
+				// Network error - try to use cache if available
+				if (cache && metadata?.lastHabitsSync) {
+					console.warn('Fetch failed, using cached data:', error);
+					habits = await cache.getHabits();
+					completions = await cache.getCompletions();
+					update((s) => ({ ...s, isOffline: true }));
+				} else {
+					throw error;
+				}
 			}
 
 			const computed = computeStatistics(currentState.scope, currentState.selectedDate);

@@ -5,6 +5,7 @@
 	import { routes } from '$lib/routes';
 	import { signOut } from '$lib/auth/client';
 	import { createStatsCache } from '$lib/cache/statsCache';
+	import { STORAGE_KEYS } from '$lib/constants';
 	import { LogOutIcon, MenuIcon, XIcon } from '@lucide/svelte';
 	import { Avatar } from '@skeletonlabs/skeleton-svelte';
 	import { avatarUrl } from '$lib/stores/avatar';
@@ -58,10 +59,16 @@
 
 	async function handleLogout() {
 		try {
-			// Clear statistics cache to prevent data leakage between users
+			// Clear statistics IndexedDB cache to prevent data leakage between users
 			const cache = createStatsCache();
 			await cache.clearAll();
 			cache.close();
+
+			// Clear sessionStorage caches (ETags, settings, quotes)
+			sessionStorage.removeItem(STORAGE_KEYS.HABITS_ETAG);
+			sessionStorage.removeItem(STORAGE_KEYS.GOALS_ETAG);
+			sessionStorage.removeItem(STORAGE_KEYS.SETTINGS_CACHE);
+			sessionStorage.removeItem(STORAGE_KEYS.QUOTE_CACHE);
 
 			await signOut();
 			location.href = routes.login;

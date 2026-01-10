@@ -123,6 +123,8 @@ export interface CacheMetadata {
 	lastStatsCompute: Date | null;
 	habitsETag: string | null;
 	version: number;
+	/** User ID to validate cache ownership */
+	userId: string | null;
 }
 
 /**
