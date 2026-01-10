@@ -175,70 +175,53 @@ export function createStatisticsPresenter({
 			const fetchFrom = getFetchFromDate(heatmapRange);
 			const metadata = cache ? await cache.getMetadata() : null;
 
-			// Always fetch habits first to validate cache ownership
-			let currentUserId: string | null = null;
+			// Always fetch fresh data from the API - don't rely on potentially stale cache
 			try {
 				const freshHabits = await api.fetchHabits();
-				currentUserId = freshHabits.length > 0 ? freshHabits[0].userId : null;
+				const currentUserId = freshHabits.length > 0 ? freshHabits[0].userId : null;
 
-				// If cached userId doesn't match current user, clear cache and do cold start
-				if (metadata?.userId && currentUserId && metadata.userId !== currentUserId) {
-					console.log('User changed, clearing statistics cache');
-					if (cache) {
-						await cache.clearAll();
-					}
-					habits = freshHabits;
-					completions = await api.fetchCompletions(fetchFrom);
-					if (cache) {
-						await cache.setHabits(habits);
-						await cache.addCompletions(completions);
-						await cache.setMetadata({
-							lastHabitsSync: new Date(),
-							lastCompletionsSync: new Date(),
-							version: 1,
-							userId: currentUserId
-						});
-					}
-				} else if (cache && metadata?.lastHabitsSync) {
-					// Use cache but update with fresh habits
-					habits = freshHabits;
-					completions = await cache.getCompletions();
+				// Determine if we need to clear the cache:
+				// 1. Cache has data but no userId (old cache format before fix)
+				// 2. Cache userId doesn't match current user
+				// 3. Current user has no habits but cache has completions (suspicious)
+				const cacheHasData = metadata?.lastHabitsSync != null;
+				const cacheHasNoUserId = cacheHasData && !metadata?.userId;
+				const userIdMismatch =
+					metadata?.userId && currentUserId && metadata.userId !== currentUserId;
+				const suspiciousCache = !currentUserId && cacheHasData;
 
-					const lastSync = metadata.lastCompletionsSync || fetchFrom;
-					const newCompletions = await api.fetchCompletions(lastSync);
-					if (newCompletions.length > 0) {
-						const existingIds = new Set(completions.map((c) => c.id));
-						const uniqueNew = newCompletions.filter((c) => !existingIds.has(c.id));
-						completions = [...completions, ...uniqueNew];
-						await cache.addCompletions(uniqueNew);
-					}
+				if (cache && (cacheHasNoUserId || userIdMismatch || suspiciousCache)) {
+					console.log('Clearing statistics cache:', {
+						cacheHasNoUserId,
+						userIdMismatch,
+						suspiciousCache,
+						cachedUserId: metadata?.userId,
+						currentUserId
+					});
+					await cache.clearAll();
+				}
 
+				// Always fetch fresh completions to ensure correct user data
+				habits = freshHabits;
+				completions = await api.fetchCompletions(fetchFrom);
+
+				// Update cache with fresh data
+				if (cache) {
 					await cache.setHabits(habits);
+					await cache.addCompletions(completions);
 					await cache.setMetadata({
 						lastHabitsSync: new Date(),
 						lastCompletionsSync: new Date(),
+						version: 1,
 						userId: currentUserId
 					});
-				} else {
-					// Cold start - no valid cache
-					habits = freshHabits;
-					completions = await api.fetchCompletions(fetchFrom);
-					if (cache) {
-						await cache.setHabits(habits);
-						await cache.addCompletions(completions);
-						await cache.setMetadata({
-							lastHabitsSync: new Date(),
-							lastCompletionsSync: new Date(),
-							version: 1,
-							userId: currentUserId
-						});
-					}
 				}
 				update((s) => ({ ...s, isOffline: false }));
 			} catch (error) {
-				// Network error - try to use cache if available
-				if (cache && metadata?.lastHabitsSync) {
-					console.warn('Fetch failed, using cached data:', error);
+				// Network error - only use cache if we can validate ownership
+				const cachedUserId = metadata?.userId;
+				if (cache && metadata?.lastHabitsSync && cachedUserId) {
+					console.warn('Fetch failed, using cached data for user:', cachedUserId, error);
 					habits = await cache.getHabits();
 					completions = await cache.getCompletions();
 					update((s) => ({ ...s, isOffline: true }));
