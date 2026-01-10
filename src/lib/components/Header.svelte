@@ -4,6 +4,7 @@
 	import { fly, slide } from 'svelte/transition';
 	import { routes } from '$lib/routes';
 	import { signOut } from '$lib/auth/client';
+	import { createStatsCache } from '$lib/cache/statsCache';
 	import { LogOutIcon, MenuIcon, XIcon } from '@lucide/svelte';
 	import { Avatar } from '@skeletonlabs/skeleton-svelte';
 	import { avatarUrl } from '$lib/stores/avatar';
@@ -57,6 +58,11 @@
 
 	async function handleLogout() {
 		try {
+			// Clear statistics cache to prevent data leakage between users
+			const cache = createStatsCache();
+			await cache.clearAll();
+			cache.close();
+
 			await signOut();
 			location.href = routes.login;
 		} catch (e) {
