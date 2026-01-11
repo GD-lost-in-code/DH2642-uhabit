@@ -23,8 +23,11 @@ export interface ServerCacheEntry {
 }
 
 export function createStatsApi({ fetcher }: StatsApiDeps) {
+	// Bypass browser HTTP cache to ensure fresh data after user switch
+	const noCache: RequestInit = { cache: 'no-store' };
+
 	const fetchHabits = async (): Promise<Habit[]> => {
-		const res = await fetcher('/api/habits');
+		const res = await fetcher('/api/habits', noCache);
 		if (!res.ok) {
 			throw new Error('Failed to fetch habits');
 		}
@@ -33,7 +36,7 @@ export function createStatsApi({ fetcher }: StatsApiDeps) {
 
 	const fetchCompletions = async (from: Date): Promise<HabitCompletion[]> => {
 		const params = new URLSearchParams({ from: formatDate(from) });
-		const res = await fetcher(`/api/completions?${params}`);
+		const res = await fetcher(`/api/completions?${params}`, noCache);
 		if (!res.ok) {
 			throw new Error('Failed to fetch completions');
 		}
@@ -45,7 +48,7 @@ export function createStatsApi({ fetcher }: StatsApiDeps) {
 		dateKey: string
 	): Promise<ServerCacheEntry | null> => {
 		const params = new URLSearchParams({ scope, dateKey });
-		const res = await fetcher(`/api/stats/cache?${params}`);
+		const res = await fetcher(`/api/stats/cache?${params}`, noCache);
 		if (!res.ok) {
 			return null;
 		}
